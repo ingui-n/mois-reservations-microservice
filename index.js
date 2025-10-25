@@ -1,4 +1,7 @@
-import {createReservation, deleteReservation, getReservation, getReservations} from "./routes.js";
+import {getReservations} from "./routes/getReservations.js";
+import {getReservation} from "./routes/getReservation.js";
+import {deleteReservation} from "./routes/deleteReservation.js";
+import {createReservation} from "./routes/createReservation.js";
 
 Bun.serve({
   port: 3000,
@@ -9,10 +12,10 @@ Bun.serve({
       GET: getReservations,
     },
     '/reservation': {
-      GET: getReservation,
       POST: createReservation,
     },
     '/reservation/:id': {
+      GET: getReservation,
       DELETE: deleteReservation,
     },
   },

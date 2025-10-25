@@ -20,7 +20,8 @@ COPY . .
 
 ENV NODE_ENV=production
 
-# todo DB init
+# init database from /deb/schema.ts
+RUN npx drizzle-kit push
 
 # run the app
 USER bun
