@@ -1,7 +1,7 @@
 services:
   mois-microservice-reservations:
     container_name: mois-microservice-reservations
-    build: microservices/reservations
+    build: .
     restart: unless-stopped
     env_file:
       - .env
