@@ -26,6 +26,6 @@ ENV NODE_ENV=production
 RUN bunx drizzle-kit push
 
 # run the app
-USER bun
+#USER bun
 EXPOSE 3000/tcp
 ENTRYPOINT [ "bun", "run", "index.js" ]
