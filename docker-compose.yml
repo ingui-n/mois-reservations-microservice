@@ -16,6 +16,8 @@ services:
     image: postgres:latest
     env_file:
       - .env
+    volumes:
+      - ./reservations:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${RESERVATIONS_DATABASE_USER}
       POSTGRES_PASSWORD: ${RESERVATIONS_DATABASE_PASSWORD}
