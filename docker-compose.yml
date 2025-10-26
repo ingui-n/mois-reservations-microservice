@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+#    ports:
+#      - "3000:3000"
     networks:
       bridge-network:
         ipv4_address: ${RESERVATIONS_IP}

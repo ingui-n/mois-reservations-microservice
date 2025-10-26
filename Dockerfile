@@ -21,7 +21,7 @@ COPY . .
 ENV NODE_ENV=production
 
 # init database from /deb/schema.ts
-RUN npx drizzle-kit push
+RUN bunx drizzle-kit push
 
 # run the app
 USER bun
