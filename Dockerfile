@@ -18,6 +18,8 @@ FROM base AS release
 COPY --from=install /temp/prod/node_modules node_modules
 COPY . .
 
+RUN apt-get update && apt-get install -y nano iputils-ping
+
 ENV NODE_ENV=production
 
 # init database from /deb/schema.ts
