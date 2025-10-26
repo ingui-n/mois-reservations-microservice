@@ -22,10 +22,7 @@ RUN apt-get update && apt-get install -y nano iputils-ping
 
 ENV NODE_ENV=production
 
-# init database from /deb/schema.ts
-RUN bunx drizzle-kit push
-
 # run the app
 #USER bun
 EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "run", "index.js" ]
+CMD ["sh", "-c", "bunx drizzle-kit push && bun run start"]
