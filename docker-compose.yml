@@ -5,11 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-#    ports:
-#      - "3000:3000"
-    networks:
-      bridge-network:
-        ipv4_address: ${RESERVATIONS_IP}
+    ports:
+      - "${RESERVATIONS_PORT}:3000"
 
   mois-microservice-reservations-db:
     container_name: mois-microservice-reservations-db
@@ -17,12 +14,11 @@ services:
     env_file:
       - .env
     volumes:
-      - ./reservations:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${RESERVATIONS_DATABASE_USER}
       POSTGRES_PASSWORD: ${RESERVATIONS_DATABASE_PASSWORD}
       POSTGRES_DB: ${RESERVATIONS_DATABASE_DB}
-      PGDATA: /var/lib/postgresql/data/pgdata
     restart: unless-stopped
 #    ports:
 #      - "5432:5432"
@@ -31,15 +27,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      bridge-network:
-        ipv4_address: ${DATABASE_IP}
 
-networks:
-  bridge-network:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: ${DOCKER_SUBNET}
-          gateway: ${DOCKER_GATEWAY}
+volumes:
+  postgres_data:
