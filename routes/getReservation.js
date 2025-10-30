@@ -6,8 +6,7 @@ import {getComputerUnwrapped} from "../apiCalls.js";
 
 export const getReservation = async req => {
   try {
-    const url = new URL(req.url);
-    let unsafeId = url.searchParams.get('id');
+    let unsafeId = req.params.id;
 
     const validation = uuidSchema.safeParse(unsafeId);
 
@@ -15,13 +14,14 @@ export const getReservation = async req => {
       return Response.json('Bad request', {status: 400});
     }
 
-    const reservation = await db.select()
+    const [reservation] = await db.select()
       .from(reservationsTable)
       .where(
         eq(reservationsTable.id, validation.data)
-      );
+      )
+      .limit(1);
 
-    if (reservation) {//todo test
+    if (reservation) {
       reservation.computer = await getComputerUnwrapped(reservation.id);
       delete reservation.computerId;
     }

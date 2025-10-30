@@ -1,9 +1,9 @@
 import {pgTable, text, timestamp, uuid} from "drizzle-orm/pg-core";
 
 export const reservationsTable = pgTable("reservations", {
-  id: uuid().primaryKey().unique(),
-  createdAt: timestamp('createdAt', {withTimezone: true}).notNull(),
-  deletedAt: timestamp('deletedAt', {withTimezone: true}),
+  id: uuid().primaryKey().unique().defaultRandom(),
+  createdAt: timestamp('createdAt', {withTimezone: true}).notNull().defaultNow(),
+  deletedAt: timestamp('deletedAt', {withTimezone: true}).default(null),
   userId: uuid().notNull(),
   computerId: uuid().notNull(),
   password: text().notNull(),

@@ -6,6 +6,6 @@ export default defineConfig({
   schema: './db/schema.ts',
   dialect: 'postgresql',
   dbCredentials: {
-    url: `postgress://${process.env.RESERVATIONS_DATABASE_USER!}:${process.env.RESERVATIONS_DATABASE_PASSWORD!}@mois-microservice-reservations-db:5432/${process.env.RESERVATIONS_DATABASE_DB}`
+    url: `postgress://${process.env.RESERVATIONS_DATABASE_USER!}:${process.env.RESERVATIONS_DATABASE_PASSWORD!}@${process.env.RESERVATIONS_DATABASE_URL}/${process.env.RESERVATIONS_DATABASE_DB}`
   },
 });

@@ -3,7 +3,6 @@ import * as z from 'zod';
 export const uuidSchema = z.uuid();
 
 export const getReservationsSchema = z.object({
-  userId: z.uuid(),
   computerId: z.uuid(),
   from: z.iso.datetime(),
   to: z.iso.datetime(),
