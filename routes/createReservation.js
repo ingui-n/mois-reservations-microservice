@@ -1,36 +1,31 @@
 import {db} from "../db/database.js";
 import {reservationsTable} from "../db/schema.js";
-import {and, between, count, eq, gt, gte, isNull, lte, or} from "drizzle-orm";
-import {createReservationSchema} from "../validationSchemas.js";
-import {getComputerUnwrapped} from "../apiCalls.js";
+import {and, between, count, eq, gt, gte, isNull, lte, or, lt} from "drizzle-orm";
+import {createReservationSchema} from "../lib/validationSchemas.js";
+import {getComputerUnwrapped, getFaculty} from "../lib/apiCalls.js";
+import {getAuthHeaders} from "../lib/authHeaders.js";
+import {z} from "zod";
+import moment from "../lib/localizedMoment.js";
+import {isTimeAfterDateTime, isTimeBeforeDateTime} from "../lib/utilities/dateTime.js";
+import {generateRandomString} from "../lib/utilities/textGenerator.js";
 
 export const createReservation = async req => {
   try {
-    const url = new URL(req.url);
+    const body = await req.body.json();
 
-    const unsafeComputerId = url.searchParams.get('computerId');
-    const unsafeUserId = url.searchParams.get('userId');
-    const unsafeStartDateTime = url.searchParams.get('startDateTime');
-    const unsafeEndDateTime = url.searchParams.get('endDateTime');
+    const {userId: headersUserId} = getAuthHeaders(req.headers);
 
-    const validation = await createReservationSchema.safeParseAsync({
-      userId: unsafeUserId,
-      computerId: unsafeComputerId,
-      startDateTime: unsafeStartDateTime,
-      endDateTime: unsafeEndDateTime
-    });
+    const {userId, computerId, startDateTime, endDateTime} = await createReservationSchema.parse(body);
 
-    if (!validation.success) {
-      return Response.json('Bad request', {status: 400});
+    if (headersUserId !== userId) {
+      return Response.json('Forbidden', {status: 403});
     }
 
-    const {userId, computerId, startDateTime, endDateTime} = validation.data;
-
-    //todo test: get computer -> must be available
+    /** test: get computer -> must be available */
 
     const computer = await getComputerUnwrapped(computerId);
 
-    if (!computer || computer.available === false) {//todo check if computer.available or computer.data.available
+    if (!computer || computer.available === false) {
       return Response.json('Computer doesn\'t exists or is not available', {status: 400});
     }
 
@@ -40,107 +35,116 @@ export const createReservation = async req => {
       return Response.json('Faculty not found', {status: 404});
     }
 
-    //todo test: kontrola množství rezervací uživatele - maxUserReservationCount
+    /** test: kontrola množství rezervací uživatele - maxUserReservationCount */
 
     const userReservationsCount = await db.select({count: count()})
       .from(reservationsTable)
       .where(
         and(
           eq(reservationsTable.userId, userId),
-          gt(reservationsTable.startDateTime, new Date()),
+          gt(reservationsTable.startDateTime, moment()),
           isNull(reservationsTable.deletedAt)
         )
-      );
+      ).then(x => x[0].count);
 
-    if (userReservationsCount > faculty.maxUserReservationCount) {//todo test
+    if (userReservationsCount >= faculty.maxUserReservationCount) {
       return Response.json('You are currently on reservations limit', {status: 403});
     }
 
-    //todo test: kontrola max týdenních rezervací - maxUserReservationTimeWeekly
+    /** test: kontrola délky rezervace - maxUserReservationTime */
 
-    const today = new Date();
-    const daysUntilNextSunday = (7 - today.getDay()) % 7 || 7;
-    const nextSunday = new Date(today);
-    nextSunday.setDate(today.getDate() + daysUntilNextSunday);
+    const reservationLengthMinutes = endDateTime.diff(startDateTime, 'minutes');
+
+    if (reservationLengthMinutes > faculty.maxUserReservationTime) {
+      return Response.json(`Maximum time for a reservation is ${faculty.maxUserReservationTime / 60} hour(s)`, {status: 403});
+    }
+
+    /** test: kontrola max týdenních rezervací - maxUserReservationTimeWeekly */
+
+    const weekStart = moment(startDateTime).startOf('isoWeek').startOf('day');
+    const weekEnd = moment(startDateTime).endOf('isoWeek').endOf('day');
 
     const userReservationsWeekly = await db.select()
       .from(reservationsTable)
       .where(
         and(
           eq(reservationsTable.userId, userId),
-          between(reservationsTable.startDateTime, today, nextSunday),//todo test
+          between(reservationsTable.startDateTime, weekStart, weekEnd),
           isNull(reservationsTable.deletedAt)
         )
       );
 
-    let weeklySumMinutes = Math.abs((startDateTime - endDateTime) / 60000);
+    let weeklySumMinutes = endDateTime.diff(startDateTime, 'minutes');
 
     for (const reservation of userReservationsWeekly) {
-      weeklySumMinutes += Math.abs((reservation.startDateTime - reservation.endDateTime) / 60000);
+      weeklySumMinutes += moment(endDateTime).diff(moment(startDateTime), 'minutes');
     }
 
-    if (weeklySumMinutes >= faculty.maxUserReservationTimeWeekly) {//todo test
+    if (weeklySumMinutes >= faculty.maxUserReservationTimeWeekly) {
       return Response.json('You are currently on reservations limit for this week', {status: 403});
     }
 
-    //todo test: kontrola délky rezervace - maxUserReservationTime
+    /** test: kontrola začátku a konce rezervace - reservationDateStart - reservationDateEnd */
 
-    const reservationLengthMinutes = Math.abs((startDateTime - endDateTime) / 60000);
-
-    if (reservationLengthMinutes > faculty.maxUserReservationTime) {
-      return Response.json('Reservation time is too long', {status: 403});
+    if (isTimeBeforeDateTime(faculty.reservationTimeEnd, endDateTime)) {
+      return Response.json(`Reservation must end before ${faculty.reservationTimeEnd}`, {status: 403});
     }
 
-    //todo test: kontrola začátku a konce rezervace - reservationDateStart - reservationDateEnd
-
-    if (startDateTime.getHours() < faculty.reservationTimeStart) {
-      return Response.json(`Reservation must start after ${faculty.reservationTimeStart}`, {status: 403});//todo set to show hours and minutes
+    if (isTimeAfterDateTime(faculty.reservationTimeStart, startDateTime)) {
+      return Response.json(`Reservation must start after ${faculty.reservationTimeStart}`, {status: 403});
     }
 
-    if (endDateTime.getHours() > faculty.reservationTimeEnd) {
-      return Response.json(`Reservation must end before ${faculty.reservationTimeEnd}`, {status: 403});//todo set to show hours and minutes
-    }
+    const result = await db.transaction(async (tx) => {
+      /** test: kontrola překryvu rezervace s jinými */
 
-    //todo test: kontrola překryvu rezervace s jinými
-
-    await db.transaction(async (tx) => {
       const overlap = await tx.select()
         .from(reservationsTable)
         .where(and(
           eq(reservationsTable.computerId, computerId),
           isNull(reservationsTable.deletedAt),
           or(
-            and(lte(reservationsTable.startDateTime, startDateTime), gte(reservationsTable.endDateTime, startDateTime)),
-            and(lte(reservationsTable.startDateTime, endDateTime), gte(reservationsTable.endDateTime, endDateTime)),
-            and(gte(reservationsTable.startDateTime, startDateTime), lte(reservationsTable.endDateTime, endDateTime))
+            // new start is inside an existing reservation
+            and(lt(reservationsTable.startDateTime, startDateTime), gt(reservationsTable.endDateTime, startDateTime)),
+            // new end is inside an existing reservation
+            and(lt(reservationsTable.startDateTime, endDateTime), gt(reservationsTable.endDateTime, endDateTime)),
+            // existing reservation completely contained within the new one
+            and(lte(reservationsTable.endDateTime, endDateTime), gte(reservationsTable.startDateTime, startDateTime))
           )
         ))
         .for('update');
 
-      if (overlap.length > 0)
-        return Response.json('Computer already reserved in this time range', {status: 403});
-
-      const reservation = await tx.insert(reservationsTable)
-        .values({
-          id: crypto.randomUUID(),
-          createdAt: new Date(),
-          userId,
-          computerId,
-          password: crypto.randomUUID(),
-          startDateTime,
-          endDateTime,
-        });
-
-      if (reservation) {//todo test
-        reservation.computer = await getComputerUnwrapped(reservation.id);
-        delete reservation.computerId;
+      if (overlap.length > 0) {
+        throw new Error('OVERLAP');
       }
 
-      return Response.json(reservation, {status: 201});
-    });
-  } catch (e) {
-    console.error(e);
+      const [reservation] = await tx.insert(reservationsTable)
+        .values({
+          userId,
+          computerId,
+          password: generateRandomString(),
+          startDateTime,
+          endDateTime,
+        })
+        .returning();
 
-    return new Response(e.message, {status: 500});
+      return reservation;
+    });
+
+    result.computer = computer;
+    delete result.computerId;
+
+    return Response.json(result, {status: 201});
+  } catch (err) {
+    console.error(err);
+
+    if (err instanceof z.ZodError) {
+      return Response.json(err.issues[0].message || 'Bad request', {status: 400});
+    }
+
+    if (err.message === 'OVERLAP') {
+      return Response.json('Computer is already reserved in this time range', {status: 403});
+    }
+
+    return new Response(err.message, {status: 500});
   }
 };

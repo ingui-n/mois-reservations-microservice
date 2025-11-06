@@ -1,36 +1,33 @@
 import {db} from "../db/database.js";
 import {reservationsTable} from "../db/schema.js";
-import {and, eq, isNull, lt} from "drizzle-orm";
-import {uuidSchema} from "../validationSchemas.js";
+import {and, eq, gt, isNull} from "drizzle-orm";
+import {uuidSchema} from "../lib/validationSchemas.js";
 
 export const deleteReservation = async req => {
   try {
-    const url = new URL(req.url);
-    let unsafeId = url.searchParams.get('id');
+    let unsafeId = req.params.id;
 
-    const validation = uuidSchema.safeParse(unsafeId);
+    const validation = uuidSchema.safeParse(unsafeId);//todo use parse()
 
     if (!validation.success) {
       return Response.json('Bad request', {status: 400});
     }
 
-    const reservation = await db.update(reservationsTable)
-      .set({deletedAt: new Date()})//todo test if needs to be isostring
+    const updatedReservations = await db.update(reservationsTable)
+      .set({deletedAt: new Date()})
       .where(
         and(
           eq(reservationsTable.id, validation.data),
-          lt(reservationsTable.startDateTime, new Date()),
+          gt(reservationsTable.startDateTime, new Date()),
           isNull(reservationsTable.deletedAt)
         )
       );
 
-    console.log(reservation)//todo test condition
-
-    if (reservation) {
-      return Response.json(reservation, {status: 200});
+    if (updatedReservations.rowCount === 0) {
+      return Response.json('Not found', {status: 404});
     }
 
-    return Response.json('Not found', {status: 404});
+    return new Response(null, {status: 200});
   } catch (e) {
     console.error(e);
 

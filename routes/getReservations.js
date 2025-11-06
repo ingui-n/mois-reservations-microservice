@@ -1,9 +1,9 @@
 import {and, between, eq} from "drizzle-orm";
 import {reservationsTable} from "../db/schema.js";
 import {db} from "../db/database.js";
-import {getReservationsSchema, uuidSchema} from "../validationSchemas.js";
-import {getComputerUnwrapped} from "../apiCalls.js";
-import {getAuthHeaders} from "../authHeaders.js";
+import {getReservationsSchema, uuidSchema} from "../lib/validationSchemas.js";
+import {getComputerUnwrapped} from "../lib/apiCalls.js";
+import {getAuthHeaders} from "../lib/authHeaders.js";
 
 export const getReservations = async req => {
   try {
@@ -21,7 +21,7 @@ export const getReservations = async req => {
 
     /** for /reservations?computerId="uuid"&from="dateTime"&to="dateTime" */
 
-    const validation = await getReservationsSchema.safeParseAsync({
+    const validation = await getReservationsSchema.safeParseAsync({//todo rewrite to parseAsync()
       computerId: unsafeComputerId,
       from: unsafeFrom,
       to: unsafeTo

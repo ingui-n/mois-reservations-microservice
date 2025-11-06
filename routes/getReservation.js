@@ -1,8 +1,8 @@
 import {eq} from "drizzle-orm";
 import {reservationsTable} from "../db/schema.js";
 import {db} from "../db/database.js";
-import {uuidSchema} from "../validationSchemas.js";
-import {getComputerUnwrapped} from "../apiCalls.js";
+import {uuidSchema} from "../lib/validationSchemas.js";
+import {getComputerUnwrapped} from "../lib/apiCalls.js";
 
 export const getReservation = async req => {
   try {
