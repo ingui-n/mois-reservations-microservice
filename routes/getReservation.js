@@ -3,33 +3,40 @@ import {reservationsTable} from "../db/schema.js";
 import {db} from "../db/database.js";
 import {uuidSchema} from "../lib/validationSchemas.js";
 import {getComputerUnwrapped} from "../lib/apiCalls.js";
+import {z} from "zod";
+import {getAuthHeaders} from "../lib/authHeaders.js";
 
 export const getReservation = async req => {
   try {
     let unsafeId = req.params.id;
+    const {userId: headersUserId, userRoles: headersUserRoles} = getAuthHeaders(req.headers);
 
-    const validation = uuidSchema.safeParse(unsafeId);
-
-    if (!validation.success) {
-      return Response.json('Bad request', {status: 400});
-    }
+    const uuid = uuidSchema.parse(unsafeId);
 
     const [reservation] = await db.select()
       .from(reservationsTable)
       .where(
-        eq(reservationsTable.id, validation.data)
+        eq(reservationsTable.id, uuid)
       )
       .limit(1);
 
     if (reservation) {
-      reservation.computer = await getComputerUnwrapped(reservation.id);
+      reservation.computer = await getComputerUnwrapped(reservation.computerId);
       delete reservation.computerId;
+
+      if (!headersUserRoles.includes(Bun.env.ROLE_ADMIN) && reservation.userId !== headersUserId) {
+        delete reservation.password;
+      }
     }
 
     return Response.json(reservation, {status: 200});
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
 
-    return new Response(e.message, {status: 500});
+    if (err instanceof z.ZodError) {
+      return Response.json(err.issues[0].message || 'Bad request', {status: 400});
+    }
+
+    return new Response(err.message, {status: 500});
   }
 };
