@@ -2,23 +2,24 @@ import {db} from "../db/database.js";
 import {reservationsTable} from "../db/schema.js";
 import {and, eq, gt, isNull} from "drizzle-orm";
 import {uuidSchema} from "../lib/validationSchemas.js";
+import {z} from "zod";
+import {getAuthHeaders} from "../lib/authHeaders.js";
+import moment from "../lib/localizedMoment.js";
 
 export const deleteReservation = async req => {
   try {
     let unsafeId = req.params.id;
+    const {userId: headersUserId} = getAuthHeaders(req.headers);
 
-    const validation = uuidSchema.safeParse(unsafeId);//todo use parse()
-
-    if (!validation.success) {
-      return Response.json('Bad request', {status: 400});
-    }
+    const uuid = uuidSchema.parse(unsafeId);
 
     const updatedReservations = await db.update(reservationsTable)
       .set({deletedAt: new Date()})
       .where(
         and(
-          eq(reservationsTable.id, validation.data),
-          gt(reservationsTable.startDateTime, new Date()),
+          eq(reservationsTable.id, uuid),
+          eq(reservationsTable.userId, headersUserId),
+          gt(reservationsTable.startDateTime, moment()),
           isNull(reservationsTable.deletedAt)
         )
       );
@@ -28,9 +29,13 @@ export const deleteReservation = async req => {
     }
 
     return new Response(null, {status: 200});
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
 
-    return new Response(e.message, {status: 500});
+    if (err instanceof z.ZodError) {
+      return Response.json(err.issues[0].message || 'Bad request', {status: 400});
+    }
+
+    return new Response(err.message, {status: 500});
   }
 };
