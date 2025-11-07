@@ -1,4 +1,4 @@
-import {eq} from "drizzle-orm";
+import {and, eq, isNull} from "drizzle-orm";
 import {reservationsTable} from "../db/schema.js";
 import {db} from "../db/database.js";
 import {uuidSchema} from "../lib/validationSchemas.js";
@@ -16,17 +16,23 @@ export const getReservation = async req => {
     const [reservation] = await db.select()
       .from(reservationsTable)
       .where(
-        eq(reservationsTable.id, uuid)
+        and(
+          eq(reservationsTable.id, uuid),
+          isNull(reservationsTable.deletedAt)
+        )
       )
       .limit(1);
 
-    if (reservation) {
-      reservation.computer = await getComputerUnwrapped(reservation.computerId);
-      delete reservation.computerId;
+    if (!reservation) {
+      return new Response('No reservation found', {status: 404});
+    }
 
-      if (!headersUserRoles.includes(Bun.env.ROLE_ADMIN) && reservation.userId !== headersUserId) {
-        delete reservation.password;
-      }
+    reservation.computer = await getComputerUnwrapped(reservation.computerId);
+    delete reservation.computerId;
+
+    if (!headersUserRoles.includes(Bun.env.ROLE_ADMIN) && reservation.userId !== headersUserId) {
+      delete reservation.password;
+      delete reservation.deletedAt;
     }
 
     return Response.json(reservation, {status: 200});
