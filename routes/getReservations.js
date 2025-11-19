@@ -5,6 +5,7 @@ import {getReservationsByDatesSchema, getReservationsSchema, uuidSchema} from ".
 import {getComputerUnwrapped} from "../lib/apiCalls.js";
 import {getAuthHeaders} from "../lib/authHeaders.js";
 import {z} from "zod";
+import moment from "moment-timezone";
 
 export const getReservations = async req => {
   try {
@@ -77,6 +78,7 @@ const byUserId = async (headers, userId) => {
     .where(
       and(
         eq(reservationsTable.userId, userId),
+        gte(reservationsTable.endDateTime, moment()), // only the current or the future ones
         isNull(reservationsTable.deletedAt)
       )
     );
