@@ -1,7 +1,7 @@
 import {and, eq, gte, isNull, lte, or} from "drizzle-orm";
 import {reservationsTable} from "../db/schema.js";
 import {db} from "../db/database.js";
-import {getReservationsSchema, uuidSchema} from "../lib/validationSchemas.js";
+import {getReservationsByDatesSchema, getReservationsSchema, uuidSchema} from "../lib/validationSchemas.js";
 import {getComputerUnwrapped} from "../lib/apiCalls.js";
 import {getAuthHeaders} from "../lib/authHeaders.js";
 import {z} from "zod";
@@ -43,7 +43,19 @@ export const getReservations = async req => {
         to: unsafeTo
       });
 
-      const reservations = await byComputerId(headers, computerId, from, to);
+      const reservations = await reservationsByComputerId(headers, computerId, from, to);
+      return Response.json(reservations, {status: 200});
+    }
+
+    /** for /reservations?from="dateTime"&to="dateTime" */
+
+    if (unsafeFrom && unsafeTo) {
+      const {from, to} = await getReservationsByDatesSchema.parse({
+        from: unsafeFrom,
+        to: unsafeTo
+      });
+
+      const reservations = await reservationsByDates(headers, from, to);
       return Response.json(reservations, {status: 200});
     }
 
@@ -72,12 +84,29 @@ const byUserId = async (headers, userId) => {
   return await formatReservations(headers, reservations);
 };
 
-const byComputerId = async (headers, computerId, from, to) => {
+const reservationsByComputerId = async (headers, computerId, from, to) => {
   const reservations = await db.select()
     .from(reservationsTable)
     .where(
       and(
         eq(reservationsTable.computerId, computerId),
+        or(
+          and(lte(reservationsTable.startDateTime, from), gte(reservationsTable.endDateTime, from)),
+          and(lte(reservationsTable.startDateTime, to), gte(reservationsTable.endDateTime, to)),
+          and(lte(reservationsTable.endDateTime, to), gte(reservationsTable.startDateTime, from))
+        ),
+        isNull(reservationsTable.deletedAt)
+      )
+    );
+
+  return await formatReservations(headers, reservations);
+};
+
+const reservationsByDates = async (headers, from, to) => {
+  const reservations = await db.select()
+    .from(reservationsTable)
+    .where(
+      and(
         or(
           and(lte(reservationsTable.startDateTime, from), gte(reservationsTable.endDateTime, from)),
           and(lte(reservationsTable.startDateTime, to), gte(reservationsTable.endDateTime, to)),
