@@ -49,11 +49,25 @@ const getReservationsFromDatabase = async (headers, userId, computerId, from, to
       and(
         userId && eq(reservationsTable.userId, userId),
         computerId && eq(reservationsTable.computerId, computerId),
-        (from || to) && or(
-          from && and(lte(reservationsTable.startDateTime, from), gte(reservationsTable.endDateTime, from)),
-          to && and(lte(reservationsTable.startDateTime, to), gte(reservationsTable.endDateTime, to)),
-          from && to && and(lte(reservationsTable.endDateTime, to), gte(reservationsTable.startDateTime, from))
-        ),
+
+        (from || to) ? or(
+          // Overlaps with 'from' (active at 'from' time)
+          from && and(
+            lte(reservationsTable.startDateTime, from),
+            gte(reservationsTable.endDateTime, from)
+          ),
+          // Overlaps with 'to' (active at 'to' time)
+          to && and(
+            lte(reservationsTable.startDateTime, to),
+            gte(reservationsTable.endDateTime, to)
+          ),
+          // Completely within [from, to]
+          from && to && and(
+            gte(reservationsTable.startDateTime, from),
+            lte(reservationsTable.endDateTime, to)
+          )
+        ) : undefined,
+
         isNull(reservationsTable.deletedAt)
       )
     );
