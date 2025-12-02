@@ -29,7 +29,7 @@ export const createReservation = async req => {
       return Response.json('Computer doesn\'t exists or is not available', {status: 400});
     }
 
-    const faculty = await getFaculty(computer.computerRoom.facultyId);
+    const faculty = await getFaculty(computer.computerRoom.faculty.facultyId);
 
     if (!faculty) {
       return Response.json('Faculty not found', {status: 404});
