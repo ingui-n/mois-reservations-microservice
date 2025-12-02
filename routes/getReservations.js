@@ -23,8 +23,8 @@ export const getReservations = async req => {
       to: unsafeTo
     });
 
-    // reject if the request is not from the same user
-    if (userId && headers.userId !== userId) {
+    // reject if the request is not from the same user and user is not admin
+    if (userId && headers.userId !== userId && !headers.userRoles.includes(Bun.env.ROLE_ADMIN)) {
       return Response.json('Forbidden', {status: 403});
     }
 
