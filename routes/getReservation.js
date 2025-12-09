@@ -6,13 +6,20 @@ import {getComputerUnwrapped} from "../lib/apiCalls.js";
 import {z} from "zod";
 import {getAuthHeaders} from "../lib/authHeaders.js";
 
+/**
+ * funkce pro získání rezervace podle ID
+ * @param req
+ * @returns {Promise<Response>}
+ */
 export const getReservation = async req => {
   try {
     let unsafeId = req.params.id;
+    /** headers z API gateway jwt payload */
     const {userId: headersUserId, userRoles: headersUserRoles} = getAuthHeaders(req.headers);
 
     const uuid = uuidSchema.parse(unsafeId);
 
+    /** call do databáze */
     const [reservation] = await db.select()
       .from(reservationsTable)
       .where(
@@ -27,9 +34,11 @@ export const getReservation = async req => {
       return new Response('No reservation found', {status: 404});
     }
 
+    /** přidání unwrapped computer */
     reservation.computer = await getComputerUnwrapped(reservation.computerId);
     delete reservation.computerId;
 
+    /** pokud není uživatel admin a zároveň není vlastníkem rezervace -> odstranení polí */
     if (!headersUserRoles.includes(Bun.env.ROLE_ADMIN) && reservation.userId !== headersUserId) {
       delete reservation.password;
       delete reservation.deletedAt;

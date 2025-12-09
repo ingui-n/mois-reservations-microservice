@@ -20,6 +20,11 @@ Bun.serve({
     },
   },
 
+  /**
+   * catch all cesty, které nejsou definované výš
+   * @param req
+   * @returns {Response}
+   */
   fetch(req) {
     console.error('Requested route not found:', req);
     return new Response("Not Found", {status: 404});

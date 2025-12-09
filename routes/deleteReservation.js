@@ -6,13 +6,20 @@ import {z} from "zod";
 import {getAuthHeaders} from "../lib/authHeaders.js";
 import moment from "../lib/localizedMoment.js";
 
+/**
+ * funkce pro odstarnení rezervace
+ * @param req
+ * @returns {Promise<Response>}
+ */
 export const deleteReservation = async req => {
   try {
     let unsafeId = req.params.id;
+    /** headers z API gateway jwt payload */
     const {userId: headersUserId} = getAuthHeaders(req.headers);
 
     const uuid = uuidSchema.parse(unsafeId);
 
+    /** surprise, surprise není tu delete ale update kvůli statistikám, limitům nastaveným v modelu faculty v computer microservice */
     const updatedReservations = await db.update(reservationsTable)
       .set({deletedAt: new Date()})
       .where(

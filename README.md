@@ -1,4 +1,4 @@
-# Reservations Microservice
+# MOIS Reservations Microservice
 
 ## For debugging
 
@@ -11,5 +11,10 @@ bun install
 Run:
 
 ```bash
-bun run index.js
+bun start
 ```
+
+## For deployment
+
+1. Rename `.env-example` to `.env` and fulfill variables
+2. Run `docker-compose up -d`

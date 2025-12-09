@@ -94,6 +94,7 @@ export const createReservation = async req => {
       return Response.json(`Reservation must start after ${faculty.reservationTimeStart}`, {status: 403});
     }
 
+    /** transakce kvůli ukládání dat do datbáze na základě aktuálních dat */
     const result = await db.transaction(async (tx) => {
       /** test: kontrola překryvu rezervace s jinými */
 
@@ -117,6 +118,7 @@ export const createReservation = async req => {
         throw new Error('OVERLAP');
       }
 
+      /** vložení nové rezervace */
       const [reservation] = await tx.insert(reservationsTable)
         .values({
           userId,

@@ -1,5 +1,8 @@
 import {pgTable, text, timestamp, uuid, integer} from "drizzle-orm/pg-core";
 
+/**
+ * drizzle schéma tabulky rezervací
+ */
 export const reservationsTable = pgTable("reservations", {
   id: uuid().primaryKey().unique().defaultRandom(),
   createdAt: timestamp('createdAt', {withTimezone: true}).notNull().defaultNow(),
